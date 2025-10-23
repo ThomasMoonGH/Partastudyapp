@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Calendar, Clock, Video, Trash2, Users, MessageCircle, Heart, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Clock, Video, Trash2, Users, MessageCircle, Heart, ChevronDown, ChevronUp, Sparkles, Info } from "lucide-react";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { ChatPanel, Message } from "./ChatPanel";
@@ -28,6 +28,7 @@ interface SessionsViewProps {
   onToggleFavorite?: (sessionId: string) => void;
   onSendMessage?: (sessionId: string, message: string) => void;
   openChatWithPartner?: string | null;
+  onStartDemoCall?: () => void;
 }
 
 export function SessionsView({ 
@@ -36,7 +37,8 @@ export function SessionsView({
   onCancelSession,
   onToggleFavorite,
   onSendMessage,
-  openChatWithPartner = null
+  openChatWithPartner = null,
+  onStartDemoCall
 }: SessionsViewProps) {
   const [selectedChatSession, setSelectedChatSession] = useState<Session | null>(null);
   const [showUserMissedWarning, setShowUserMissedWarning] = useState(true);
@@ -126,6 +128,12 @@ export function SessionsView({
                 <Badge variant="outline" className="text-red-500 border-red-500">
                   <Heart className="w-3 h-3 mr-1 fill-current" />
                   Избранное
+                </Badge>
+              )}
+              {session.id.startsWith('demo-') && (
+                <Badge variant="outline" className="bg-purple-50 border-purple-300 text-purple-700">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  ДЕМО
                 </Badge>
               )}
             </div>
@@ -228,6 +236,20 @@ export function SessionsView({
                 <p>Нет предстоящих сессий</p>
                 <p className="text-sm">Забронируйте временной слот, чтобы начать!</p>
               </div>
+              {onStartDemoCall && (
+                <div className="mt-6 pt-6 border-t">
+                  <p className="text-sm text-gray-600 mb-3">
+                    Хотите протестировать видеосвязь?
+                  </p>
+                  <Button
+                    onClick={onStartDemoCall}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Попробовать демо-созвон
+                  </Button>
+                </div>
+              )}
             </Card>
           ) : (
             <div className="grid gap-4">

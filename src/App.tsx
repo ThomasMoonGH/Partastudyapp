@@ -563,6 +563,43 @@ export default function App() {
     }));
   };
 
+  const handleStartDemoCall = () => {
+    // Создаём демо-сессию, которая начинается прямо сейчас
+    const now = new Date();
+    const demoSession: Session = {
+      id: `demo-${Date.now()}`,
+      date: now,
+      time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      partner: { 
+        name: 'Демо-партнёр', 
+        initials: 'ДП' 
+      },
+      status: 'upcoming',
+      isFavorite: false,
+      messages: [
+        {
+          id: '1',
+          sender: 'partner',
+          text: 'Привет! Это демо-режим. Можете протестировать все функции видеосвязи!',
+          timestamp: new Date()
+        }
+      ],
+      missedByUser: false
+    };
+
+    setSessions(prev => [demoSession, ...prev]);
+    
+    toast.success('Демо-сессия создана!', {
+      description: 'Подключаемся к демо-созвону...'
+    });
+
+    // Подключаемся к сессии через небольшую задержку
+    setTimeout(() => {
+      setActiveSessionId(demoSession.id);
+      setCurrentView('active');
+    }, 500);
+  };
+
   const activeSession = sessions.find(s => s.id === activeSessionId);
 
   // Reset openChatWithPartner when leaving sessions view
@@ -602,6 +639,7 @@ export default function App() {
         <CalendarView 
           onBookSession={handleBookSession}
           sessions={sessions}
+          onStartDemoCall={handleStartDemoCall}
         />
       )}
 
@@ -613,6 +651,7 @@ export default function App() {
           onToggleFavorite={handleToggleFavorite}
           onSendMessage={handleSendMessage}
           openChatWithPartner={openChatWithPartner}
+          onStartDemoCall={handleStartDemoCall}
         />
       )}
 

@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Heart,
-  MessageCircle
+  MessageCircle,
+  Sparkles
 } from "lucide-react";
 import { ChatPanel, Message } from "./ChatPanel";
 import { ReportDialog } from "./ReportDialog";
@@ -243,6 +244,12 @@ export function ActiveSession({
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-sm">Сессия активна</span>
             </div>
+            {sessionId.startsWith('demo-') && (
+              <Badge variant="outline" className="bg-purple-600/20 border-purple-400 text-purple-200">
+                <Sparkles className="w-3 h-3 mr-1" />
+                ДЕМО-РЕЖИМ
+              </Badge>
+            )}
             <div className="flex items-center gap-2 text-gray-300">
               <Clock className="w-4 h-4" />
               <span className="text-sm">{formatTime(elapsedTime)}</span>

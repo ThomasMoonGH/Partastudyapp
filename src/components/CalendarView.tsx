@@ -3,7 +3,7 @@ import { Calendar } from "./ui/calendar";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Clock, Users } from "lucide-react";
+import { Clock, Users, Sparkles } from "lucide-react";
 import { BookingDialog } from "./BookingDialog";
 
 export interface Session {
@@ -24,6 +24,7 @@ interface CalendarViewProps {
   onBookSession: (date: Date, time: string) => void;
   sessions: Session[];
   isBlocked?: boolean;
+  onStartDemoCall?: () => void;
 }
 
 // Generate slots for a given date with real waiting count
@@ -65,7 +66,7 @@ function isTimeSlotPassed(date: Date, time: string): boolean {
   return slotDate < now;
 }
 
-export function CalendarView({ onBookSession, sessions, isBlocked = false }: CalendarViewProps) {
+export function CalendarView({ onBookSession, sessions, isBlocked = false, onStartDemoCall }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showBookingDialog, setShowBookingDialog] = useState(false);
@@ -146,6 +147,22 @@ export function CalendarView({ onBookSession, sessions, isBlocked = false }: Cal
               <li>• Работайте вместе (камеры по желанию, микрофоны для общения)</li>
             </ul>
           </div>
+
+          {onStartDemoCall && (
+            <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+              <h4 className="text-sm mb-2">Хотите попробовать прямо сейчас?</h4>
+              <p className="text-sm text-gray-700 mb-3">
+                Протестируйте видеосвязь и все функции в демо-режиме
+              </p>
+              <Button
+                onClick={onStartDemoCall}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Попробовать демо-созвон
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
