@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Header } from "./components/Header";
 import { CalendarView } from "./components/CalendarView";
 import { SessionsView } from "./components/SessionsView";
@@ -9,6 +9,7 @@ import { AdminView } from "./components/AdminView";
 import { FavoritesView } from "./components/FavoritesView";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner@2.0.3";
+import { Button } from "./components/ui/button";
 import { Message } from "./components/ChatPanel";
 
 interface Session {
@@ -425,6 +426,8 @@ export default function App() {
   };
 
   const handleJoinSession = (sessionId: string) => {
+    console.log('Joining session:', sessionId);
+    console.log('Available sessions:', sessions);
     setActiveSessionId(sessionId);
     setCurrentView('active');
   };
@@ -601,6 +604,15 @@ export default function App() {
   };
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
+  
+  // Debug logging
+  useEffect(() => {
+    if (currentView === 'active') {
+      console.log('Active view - activeSessionId:', activeSessionId);
+      console.log('Active view - activeSession:', activeSession);
+      console.log('Active view - sessions:', sessions);
+    }
+  }, [currentView, activeSessionId, activeSession, sessions]);
 
   // Reset openChatWithPartner when leaving sessions view
   useEffect(() => {
@@ -691,6 +703,21 @@ export default function App() {
           onSendMessage={(text) => handleSendMessage(activeSession.id, text)}
           messages={activeSession.messages}
         />
+      )}
+
+      {currentView === 'active' && !activeSession && (
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Сессия не найдена</h1>
+            <p className="text-gray-400 mb-6">Возможно, сессия была удалена или истекла</p>
+            <Button 
+              onClick={() => setCurrentView('sessions')}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Вернуться к сессиям
+            </Button>
+          </div>
+        </div>
       )}
 
       <Toaster />

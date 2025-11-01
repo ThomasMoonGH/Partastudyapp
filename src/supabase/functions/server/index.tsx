@@ -2,6 +2,7 @@ import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.tsx";
+import { LIVEKIT_CONFIG, validateLiveKitConfig } from "./livekit_config.tsx";
 const app = new Hono();
 
 // Enable logger
@@ -22,6 +23,48 @@ app.use(
 // Health check endpoint
 app.get("/make-server-85bbbe36/health", (c) => {
   return c.json({ status: "ok" });
+});
+
+// LiveKit token generation endpoint
+app.post("/make-server-85bbbe36/livekit/generate-token", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { roomName, participantName, sessionId, userEmail } = body;
+
+    if (!roomName || !participantName || !sessionId || !userEmail) {
+      return c.json({ error: "Missing required fields: roomName, participantName, sessionId, userEmail" }, 400);
+    }
+
+    // Валидация конфигурации LiveKit
+    validateLiveKitConfig();
+
+    // Проверяем что пользователь является участником сессии
+    // (здесь можно добавить дополнительную валидацию через Supabase)
+    
+    // Генерируем JWT токен для LiveKit
+    const token = await generateLiveKitToken({
+      roomName,
+      participantName,
+      sessionId,
+      userEmail
+    });
+
+    console.log(`LiveKit token generated for ${participantName} in room ${roomName}`);
+
+    return c.json({ 
+      success: true, 
+      token,
+      livekitUrl: LIVEKIT_CONFIG.URL,
+      roomName,
+      participantName 
+    });
+  } catch (error) {
+    console.error("Error generating LiveKit token:", error);
+    return c.json({ 
+      error: "Failed to generate LiveKit token", 
+      details: String(error) 
+    }, 500);
+  }
 });
 
 // Submit a report

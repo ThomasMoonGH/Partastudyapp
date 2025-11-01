@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -81,6 +81,11 @@ export function SessionsView({
     });
 
   const isSessionActive = (session: Session) => {
+    // Для тестирования - всегда показываем кнопку для upcoming сессий
+    if (session.status === 'upcoming') {
+      return true;
+    }
+    
     const now = new Date();
     const sessionDateTime = new Date(session.date);
     const [hours, minutes] = session.time.split(':');
@@ -200,7 +205,10 @@ export function SessionsView({
             </Button>
           )}
           {!isPast && isSessionActive(session) ? (
-            <Button onClick={() => onJoinSession(session.id)}>
+            <Button onClick={() => {
+              console.log('Joining session from SessionsView:', session.id);
+              onJoinSession(session.id);
+            }}>
               <Video className="w-4 h-4 mr-2" />
               Присоединиться
             </Button>
@@ -254,7 +262,7 @@ export function SessionsView({
           ) : (
             <div className="grid gap-4">
               {upcomingSessions.map((session) => (
-                <SessionCard key={session.id} session={session} />
+                <SessionCard session={session} />
               ))}
             </div>
           )}
@@ -330,7 +338,7 @@ export function SessionsView({
             
             <div className="grid gap-4">
               {pastSessions.map((session) => (
-                <SessionCard key={session.id} session={session} isPast />
+                <SessionCard session={session} isPast />
               ))}
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Avatar, AvatarFallback } from "./ui/avatar";
@@ -22,8 +22,7 @@ import { ReportDialog } from "./ReportDialog";
 import { ConnectionQualityIndicator } from "./ConnectionQualityIndicator";
 import { toast } from "sonner@2.0.3";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
-import { useWebRTC } from "../utils/useWebRTC";
-import { useWebRTCReconnect } from "../utils/useWebRTCReconnect";
+import { useLiveKit } from "../utils/useLiveKit";
 
 interface ActiveSessionProps {
   sessionId: string;
@@ -55,25 +54,32 @@ export function ActiveSession({
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showChat, setShowChat] = useState(true);
+  
+  // Auto-reconnect state (simplified for LiveKit)
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Initialize WebRTC
+  // Initialize LiveKit
   const {
     localStream,
     remoteStream,
     connectionState,
     isConnecting,
-    error: webrtcError,
+    isConnected,
+    isVideoEnabled,
+    isAudioEnabled,
+    error: livekitError,
     mediaPermissionDenied,
     hasRequestedMedia,
     requestMediaAccess,
-    toggleVideo: webrtcToggleVideo,
-    toggleAudio: webrtcToggleAudio,
+    toggleVideo: livekitToggleVideo,
+    toggleAudio: livekitToggleAudio,
     peerConnection,
     reconnect,
-  } = useWebRTC({
+  } = useLiveKit({
     sessionId,
     userId: userEmail,
     userName: userEmail.split('@')[0],
@@ -81,20 +87,48 @@ export function ActiveSession({
     autoStartMedia: false, // Don't auto-request media
   });
 
-  // Auto-reconnect on connection failure
-  const { isReconnecting, retryCount } = useWebRTCReconnect({
-    connectionState,
-    onReconnect: reconnect,
-    enabled: true,
-    maxRetries: 5,
-  });
-
   // Attach local stream to video element
   useEffect(() => {
-    if (localStream && localVideoRef.current) {
+    console.log('🎥 Local stream changed:', localStream, 'videoEnabled:', videoEnabled);
+    if (localStream && videoEnabled && localVideoRef.current) {
+      console.log('🎥 Setting local video srcObject:', localStream);
+      console.log('🎥 Video element:', localVideoRef.current);
+      console.log('🎥 Stream tracks:', localStream.getTracks());
+      console.log('🎥 Video tracks:', localStream.getVideoTracks());
+      
       localVideoRef.current.srcObject = localStream;
+      
+      // Проверяем состояние после установки
+      setTimeout(() => {
+        if (localVideoRef.current) {
+          console.log('🎥 Video srcObject after set:', localVideoRef.current.srcObject);
+          console.log('🎥 Video readyState:', localVideoRef.current.readyState);
+          console.log('🎥 Video paused:', localVideoRef.current.paused);
+          console.log('🎥 Video currentTime:', localVideoRef.current.currentTime);
+          
+          // Попробуем запустить видео программно, если оно на паузе
+          if (localVideoRef.current.paused) {
+            console.log('🎥 Video is paused, trying to play...');
+            localVideoRef.current.play().catch((error) => {
+              console.error('🎥 Failed to play video:', error);
+            });
+          }
+        }
+      }, 100);
     }
-  }, [localStream]);
+  }, [localStream, videoEnabled]);
+
+  // Синхронизируем состояние кнопок с LiveKit
+  useEffect(() => {
+    if (isConnected) {
+      console.log('🔄 Syncing button states - isVideoEnabled:', isVideoEnabled, 'isAudioEnabled:', isAudioEnabled, 'localStream:', !!localStream);
+      // Обновляем состояние кнопок на основе LiveKit
+      // Видео включено только если есть и локальный поток, и трек включен в LiveKit
+      setVideoEnabled(isVideoEnabled && !!localStream);
+      setMyMicEnabled(isAudioEnabled);
+      console.log('✅ Button states synced - videoEnabled:', isVideoEnabled && !!localStream, 'myMicEnabled:', isAudioEnabled);
+    }
+  }, [isConnected, isVideoEnabled, isAudioEnabled, localStream]);
 
   // Attach remote stream to video element
   useEffect(() => {
@@ -105,25 +139,25 @@ export function ActiveSession({
     }
   }, [remoteStream]);
 
-  // Show WebRTC errors
+  // Show LiveKit errors
   useEffect(() => {
-    if (webrtcError && !mediaPermissionDenied) {
+    if (livekitError && !mediaPermissionDenied) {
       toast.error("Ошибка подключения", {
-        description: webrtcError
+        description: livekitError.message || String(livekitError)
       });
     }
-  }, [webrtcError, mediaPermissionDenied]);
+  }, [livekitError, mediaPermissionDenied]);
 
   // Show reconnection status
   useEffect(() => {
     if (isReconnecting) {
       toast.loading("Переподключение...", {
         description: `Попытка ${retryCount} из 5`,
-        id: 'webrtc-reconnect',
+        id: 'livekit-reconnect',
       });
     } else if (retryCount > 0 && connectionState === 'connected') {
       toast.success("Соединение восстановлено", {
-        id: 'webrtc-reconnect',
+        id: 'livekit-reconnect',
       });
     }
   }, [isReconnecting, retryCount, connectionState]);
@@ -154,37 +188,54 @@ export function ActiveSession({
   };
 
   const handleVideoToggle = async () => {
-    // If media not requested yet, request it first
-    if (!hasRequestedMedia) {
-      const success = await requestMediaAccess();
-      if (!success) return;
-    }
+    console.log('🎥 Video toggle button clicked!');
+    console.log('Current state - hasRequestedMedia:', hasRequestedMedia, 'videoEnabled:', videoEnabled, 'localStream:', !!localStream);
     
-    const newState = !videoEnabled;
-    setVideoEnabled(newState);
-    webrtcToggleVideo(newState);
+    // If no local stream, request media access first
+    if (!localStream) {
+      console.log('📹 No local stream, requesting media access...');
+      await requestMediaAccess();
+      console.log('📹 Media access requested, localStream:', !!localStream);
+      return; // Exit after requesting media access
+    }
+
+    try {
+      console.log('🔄 Toggling video, current state:', videoEnabled);
+      await livekitToggleVideo();
+      // Не обновляем состояние здесь - оно обновится через useEffect синхронизации
+      console.log('✅ Video toggled, waiting for state sync...');
+    } catch (error) {
+      console.error('❌ Failed to toggle video:', error);
+      toast.error('Не удалось переключить камеру');
+    }
   };
 
   const handleMyMicToggle = async () => {
     // If media not requested yet, request it first
     if (!hasRequestedMedia) {
-      const success = await requestMediaAccess();
-      if (!success) return;
+      await requestMediaAccess();
       // If successful, mic is already on
       setMyMicEnabled(true);
       return;
     }
     
-    const newState = !myMicEnabled;
-    setMyMicEnabled(newState);
-    webrtcToggleAudio(newState);
-    
-    // If I turn off my mic, partner's mic also turns off (sync behavior)
-    if (!newState) {
-      setPartnerMicEnabled(false);
-      toast.info("Микрофоны выключены", {
-        description: "Оба участника должны включить микрофон для общения"
-      });
+    try {
+      await livekitToggleAudio();
+      // Не обновляем состояние здесь - оно обновится через useEffect синхронизации
+      
+      // If I turn off my mic, partner's mic also turns off (sync behavior)
+      // Проверяем состояние после переключения
+      setTimeout(() => {
+        if (!isAudioEnabled) {
+          setPartnerMicEnabled(false);
+          toast.info("Микрофоны выключены", {
+            description: "Оба участника должны включить микрофон для общения"
+          });
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Failed to toggle audio:', error);
+      toast.error('Не удалось переключить микрофон');
     }
   };
 
@@ -271,6 +322,7 @@ export function ActiveSession({
             <div className="grid md:grid-cols-2 gap-4 mb-4">
               <Card className="bg-gray-800 border-gray-700 overflow-hidden">
                 <div className="aspect-video bg-gray-900 flex items-center justify-center relative">
+                  {console.log('🎥 Video render check - videoEnabled:', videoEnabled, 'localStream:', !!localStream, 'condition:', videoEnabled && localStream)}
                   {videoEnabled && localStream ? (
                     <video
                       ref={localVideoRef}
@@ -278,6 +330,11 @@ export function ActiveSession({
                       playsInline
                       muted
                       className="absolute inset-0 w-full h-full object-cover"
+                      onLoadedMetadata={() => console.log('🎥 Video metadata loaded')}
+                      onCanPlay={() => console.log('🎥 Video can play')}
+                      onPlay={() => console.log('🎥 Video started playing')}
+                      onError={(e) => console.error('🎥 Video error:', e)}
+                      style={{ border: '2px solid red' }}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center">
@@ -447,7 +504,7 @@ export function ActiveSession({
             {mediaPermissionDenied && (
               <div className="mb-4 p-4 bg-red-900/30 border border-red-600 rounded-lg text-center">
                 <p className="text-sm text-red-300 mb-2">
-                  {webrtcError || "Доступ к микрофону отклонён"}
+                  {livekitError?.message || "Доступ к микрофону отклонён"}
                 </p>
                 <p className="text-xs text-red-400 mb-3">
                   Разрешите доступ в настройках браузера и попробуйте снова

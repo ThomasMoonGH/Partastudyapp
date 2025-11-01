@@ -1,0 +1,48 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - partastudy
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml --dev
+    ports:
+      - "7880:7880"    # HTTP/WebSocket API
+      - "7881:7881"    # RTC TCP
+      - "50000-50100:50000-50100/udp"  # RTC UDP range
+    volumes:
+      - ./livekit-config.yaml:/etc/livekit.yaml
+    depends_on:
+      - redis
+    networks:
+      - partastudy
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - VITE_LIVEKIT_URL=ws://localhost:7880
+      - VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
+      - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZnZ0YmdhbGNod29pbXd0enN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4ODgwOTYsImV4cCI6MjA3NjQ2NDA5Nn0.QW9TAXDbPpnutULtCGmSjnM619bP1imq6vSObv6K1nY
+    depends_on:
+      - livekit
+    networks:
+      - partastudy
+    restart: unless-stopped
+
+networks:
+  partastudy:
+    driver: bridge
+
