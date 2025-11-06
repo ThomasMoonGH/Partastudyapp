@@ -64,7 +64,7 @@ services:
       - certbot-certs:/etc/letsencrypt
     networks:
       - partastudy
-    entrypoint: ["/bin/sh", "-c", "trap : TERM INT; sleep infinity & wait"]
+    command: ["sh", "-c", "trap : TERM INT; sleep infinity & wait"]
 
 networks:
   partastudy:

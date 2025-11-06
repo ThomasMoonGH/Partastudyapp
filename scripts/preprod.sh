@@ -43,6 +43,24 @@ cert_exists() {
   compose run --rm certbot sh -c "test -s /etc/letsencrypt/live/${DOMAIN}/fullchain.pem" >/dev/null 2>&1
 }
 
+ensure_tls_assets() {
+  compose run --rm certbot sh -c '
+set -e
+python3 - <<"PY"
+import importlib.resources as res
+from pathlib import Path
+import shutil
+
+target = Path("/etc/letsencrypt")
+src = res.files("certbot_nginx._internal") / "tls_configs"
+for name in ("options-ssl-nginx.conf", "ssl-dhparams.pem"):
+    dst = target / name
+    if not dst.exists():
+        shutil.copy2(src / name, dst)
+PY
+'
+}
+
 issue_certificate() {
   if [[ -z "$EMAIL" ]]; then
     echo "❌ Укажите email для Let's Encrypt через переменную окружения LETSENCRYPT_EMAIL."
@@ -71,6 +89,7 @@ ensure_certificate() {
     echo "🔐 Сертификат для ${DOMAIN} не найден."
     issue_certificate
   fi
+  ensure_tls_assets
 }
 
 deploy_stack() {
@@ -104,6 +123,7 @@ deploy_stack() {
 renew_certificates() {
   echo "🔄 Запуск продления сертификатов..."
   compose run --rm certbot renew --webroot -w /var/www/certbot
+  ensure_tls_assets
   echo "🔁 Перезагрузка nginx для применения обновлённых сертификатов..."
   compose exec nginx nginx -s reload
   echo "✅ Продление завершено."

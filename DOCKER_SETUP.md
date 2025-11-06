@@ -94,6 +94,8 @@ docker compose up -d nginx app livekit redis
 
 Certbot сохранит сертификаты и вспомогательные файлы (`options-ssl-nginx.conf`, `ssl-dhparams.pem`) в volume `certbot-certs`, который используется nginx-ом.
 
+Если после выпуска nginx пишет `open() "/etc/letsencrypt/options-ssl-nginx.conf" failed`, запустите `scripts/preprod.sh deploy` ещё раз — скрипт автоматически скопирует дефолтные `options-ssl-nginx.conf` и `ssl-dhparams.pem` из образа Certbot в том.
+
 ### 2. Продление сертификата
 
 ```bash
