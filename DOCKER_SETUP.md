@@ -7,8 +7,8 @@
 git clone <your-repo>
 cd Partastudyapp
 
-# 2. Запустите все сервисы
-docker-compose up -d
+# 2. Для препрод-окружения запустите автоматизацию
+scripts/preprod.sh deploy
 
 # 3. Откройте приложение
 open http://localhost:3000
@@ -17,23 +17,28 @@ open http://localhost:3000
 ## Архитектура
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Docker Compose                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │    App      │  │  LiveKit    │  │   Redis    │         │
-│  │ (Vite:3000) │  │ (WS:7880)   │  │  (6379)    │         │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-│         │                │                │                │
-│         └────────────────┼────────────────┘                │
-│                          │                                 │
-│         ┌────────────────▼────────────────┐                │
-│         │     Bridge Network              │                │
-│         │     (partastudy)                │                │
-│         └────────────────────────────────┘                │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                        Docker Compose                               │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│                          ┌─────────────┐                           │
+│           443/80         │   Nginx     │                           │
+│   hochip.ru ───────────► │ (reverse)   │                           │
+│                          └──────┬──────┘                           │
+│                                 │                                  │
+│  ┌─────────────┐  ┌─────────────▼┐  ┌─────────────┐               │
+│  │    App      │  │   LiveKit    │  │    Redis    │               │
+│  │ (Vite:3000) │  │ (WS:7880)    │  │   (6379)    │               │
+│  └──────┬──────┘  └──────┬───────┘  └──────┬──────┘               │
+│         │                │                │                       │
+│         └────────────────┼────────────────┘                       │
+│                          │                                          │
+│         ┌────────────────▼────────────────┐                        │
+│         │       Bridge Network            │                        │
+│         │         (partastudy)            │                        │
+│         └────────────────────────────────┘                        │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Сервисы
@@ -44,16 +49,73 @@ open http://localhost:3000
 - **Команда**: `npm run dev -- --host 0.0.0.0`
 - **Volumes**: Hot reload для разработки
 
+### 1a. Nginx (Reverse Proxy)
+- **Порты**: 80 (HTTP), 443 (HTTPS)
+- **Назначение**: TLS-терминация, проксирование трафика к `app`
+- **Конфиг**: `nginx/nginx.conf`
+- **Volumes**: общие с Certbot для сертификатов и ACME-челленджа
+
+### 1b. Certbot (Let’s Encrypt)
+- **Порты**: используется временно при выпуске сертификатов
+- **Команда**: запускается вручную (`docker compose run certbot ...`)
+- **Назначение**: выпуск и продление SSL-сертификатов для `hochip.ru`
+- **Volumes**: общая папка `/etc/letsencrypt` и webroot `/var/www/certbot`
+
 ### 2. LiveKit (Video Server)
-- **Порт**: 7880 (HTTP/WebSocket), 7881 (RTC TCP), 50000-50100 (RTC UDP)
+- **Порты**: доступны только внутри Docker сети (`expose`)
 - **Технология**: LiveKit Server
 - **Конфигурация**: `livekit-config.yaml`
 - **Зависимости**: Redis
 
 ### 3. Redis (Cache)
-- **Порт**: 6379
+- **Порт**: 6379 (только внутри Docker сети)
 - **Технология**: Redis 7 Alpine
 - **Назначение**: Хранение состояния LiveKit
+
+## HTTPS и Let’s Encrypt
+
+### 1. Первичная выдача сертификата
+
+```bash
+# Убедитесь, что DNS для hochip.ru уже указывает на сервер.
+# Перед запуском nginx получите сертификат (порт 80/443 должен быть свободен).
+
+docker compose run --rm \
+  -p 80:80 -p 443:443 \
+  certbot certonly --standalone \
+  -d hochip.ru \
+  --agree-tos \
+  --no-eff-email \
+  -m you@example.com
+
+# После успешного выпуска перезапустите стек
+docker compose up -d nginx app livekit redis
+```
+
+Certbot сохранит сертификаты и вспомогательные файлы (`options-ssl-nginx.conf`, `ssl-dhparams.pem`) в volume `certbot-certs`, который используется nginx-ом.
+
+### 2. Продление сертификата
+
+```bash
+# Остановить необязательно — challenge обслужит nginx через webroot
+docker compose run --rm certbot renew --webroot -w /var/www/certbot
+
+# После продления перезагрузите nginx, чтобы он перечитал ключи
+docker compose exec nginx nginx -s reload
+```
+
+Добавьте cron/systemd таймер, который будет вызывать команду продления раз в день. Certbot обновляет сертификат при остаточном сроке <30 дней.
+
+### 3. Скрипт `scripts/preprod.sh`
+
+Автоматизирует подготовку препрод-окружения:
+- `deploy` — проверяет/выпускает сертификат (использует `LETSENCRYPT_EMAIL`), собирает `app`, запускает `redis`, `livekit`, `app`, `nginx`.
+- `renew` — выполняет `certbot renew` и перезагружает `nginx`.
+- `issue` — принудительная начальная выдача сертификата (если том пустой).
+
+Переменные окружения:
+- `DOMAIN` (по умолчанию `hochip.ru`)
+- `LETSENCRYPT_EMAIL` — email обязательный для первого выпуска.
 
 ## Команды
 
@@ -70,6 +132,9 @@ docker-compose logs -f
 docker-compose logs -f app
 docker-compose logs -f livekit
 docker-compose logs -f redis
+
+# Логи nginx
+docker compose logs -f nginx
 
 # Остановка всех сервисов
 docker-compose down
@@ -172,6 +237,38 @@ VITE_SUPABASE_ANON_KEY=your_key_here
 2. **Используйте `docker-compose.production.yml`** (будет создан позже)
 
 3. **Настройте Nginx** для HTTPS и WebSocket проксирования
+
+## Проверка HTTPS
+
+1. **Проверка конфигурации nginx**
+   ```bash
+   docker compose exec nginx nginx -t
+   ```
+2. **Проверка HTTP→HTTPS редиректа**
+   ```bash
+   curl -I http://hochip.ru
+   ```
+3. **Проверка сертификата и хост-хедера**
+   ```bash
+   curl -I https://hochip.ru
+   ```
+   Убедитесь, что статус 200/302, а в ответе нет `Blocked host`.
+4. **Проверка WebSocket проксирования** (должно вернуть 101)
+   ```bash
+   curl -i -H "Upgrade: websocket" -H "Connection: Upgrade" \
+     -H "Host: hochip.ru" \
+     http://localhost:80
+   ```
+5. **Проверка связности внутри сети**
+   ```bash
+   docker compose exec nginx curl -I http://app:3000
+   ```
+   Ответ 200/302 подтверждает, что proxy видит dev-сервер Vite внутри сети Docker.
+6. **Верификация LiveKit** (если требуется внешний доступ)
+   ```bash
+   curl https://hochip.ru:443/.well-known/acme-challenge/test --silent --show-error
+   ```
+   До продления убедитесь, что файл из `/var/www/certbot` отдаётся.
 
 ## Полезные команды
 
