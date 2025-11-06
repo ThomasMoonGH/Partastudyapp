@@ -40,11 +40,11 @@ ensure_project_root() {
 }
 
 cert_exists() {
-  compose run --rm certbot sh -c "test -s /etc/letsencrypt/live/${DOMAIN}/fullchain.pem" >/dev/null 2>&1
+  compose run --rm --entrypoint /bin/sh certbot -c "test -s /etc/letsencrypt/live/${DOMAIN}/fullchain.pem" >/dev/null 2>&1
 }
 
 ensure_tls_assets() {
-  compose run --rm certbot sh -c '
+  compose run --rm --entrypoint /bin/sh certbot -c '
 set -e
 python3 - <<"PY"
 import importlib.resources as res
