@@ -46,6 +46,7 @@ cert_exists() {
 ensure_tls_assets() {
   compose run --rm --entrypoint /bin/sh certbot -c '
 set -e
+python3 -m pip install --quiet certbot-nginx || true
 python3 - <<"PY"
 import importlib.resources as res
 from pathlib import Path
@@ -89,7 +90,6 @@ ensure_certificate() {
     echo "🔐 Сертификат для ${DOMAIN} не найден."
     issue_certificate
   fi
-  ensure_tls_assets
 }
 
 deploy_stack() {
@@ -123,7 +123,6 @@ deploy_stack() {
 renew_certificates() {
   echo "🔄 Запуск продления сертификатов..."
   compose run --rm certbot renew --webroot -w /var/www/certbot
-  ensure_tls_assets
   echo "🔁 Перезагрузка nginx для применения обновлённых сертификатов..."
   compose exec nginx nginx -s reload
   echo "✅ Продление завершено."
