@@ -73,7 +73,13 @@ export function useLiveKit({
         userEmail: userId,
       });
       
-      const response = await fetch('http://localhost:3001/generate-token', {
+      const tokenEndpoint =
+        ((import.meta as any).env?.VITE_TOKEN_ENDPOINT as string | undefined) || '/generate-token';
+      const tokenUrl = /^https?:\/\//i.test(tokenEndpoint)
+        ? tokenEndpoint
+        : `${window.location.origin}${tokenEndpoint}`;
+
+      const response = await fetch(tokenUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

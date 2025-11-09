@@ -32,6 +32,9 @@ services:
     expose:
       - "3000"
       - "3001"
+    ports:
+      - "3000:3000"
+      - "3001:3001"
     environment:
       - VITE_LIVEKIT_URL=ws://localhost:7880
       - VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
@@ -64,7 +67,8 @@ services:
       - certbot-certs:/etc/letsencrypt
     networks:
       - partastudy
-    command: ["sh", "-c", "trap : TERM INT; sleep infinity & wait"]
+    profiles:
+      - certbot
 
 networks:
   partastudy:

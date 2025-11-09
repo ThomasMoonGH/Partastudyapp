@@ -46,18 +46,23 @@ cert_exists() {
 ensure_tls_assets() {
   compose run --rm --entrypoint /bin/sh certbot -c '
 set -e
-python3 -m pip install --quiet certbot-nginx || true
-python3 - <<"PY"
-import importlib.resources as res
+python3 <<"PY"
 from pathlib import Path
-import shutil
+import urllib.request
 
 target = Path("/etc/letsencrypt")
-src = res.files("certbot_nginx._internal") / "tls_configs"
-for name in ("options-ssl-nginx.conf", "ssl-dhparams.pem"):
+target.mkdir(parents=True, exist_ok=True)
+
+files = {
+    "options-ssl-nginx.conf": "https://raw.githubusercontent.com/certbot/certbot/refs/heads/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf",
+    "ssl-dhparams.pem":  "https://raw.githubusercontent.com/certbot/certbot/refs/heads/master/certbot/certbot/ssl-dhparams.pem",
+}
+
+for name, url in files.items():
     dst = target / name
     if not dst.exists():
-        shutil.copy2(src / name, dst)
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            dst.write_bytes(resp.read())
 PY
 '
 }

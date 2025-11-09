@@ -48,6 +48,7 @@ open http://localhost:3000
 - **Технология**: Vite + React + TypeScript
 - **Команда**: `npm run dev -- --host 0.0.0.0`
 - **Volumes**: Hot reload для разработки
+- **API**: вспомогательный токен-сервер на `3001`, доступен через `https://<домен>/generate-token` (прокси nginx)
 
 ### 1a. Nginx (Reverse Proxy)
 - **Порты**: 80 (HTTP), 443 (HTTPS)
@@ -173,6 +174,8 @@ docker network inspect partastudyapp_partastudy
 VITE_LIVEKIT_URL=ws://localhost:7880
 VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
 VITE_SUPABASE_ANON_KEY=your_key_here
+# Опционально: переопределение эндпоинта токен-сервера
+# VITE_TOKEN_ENDPOINT=/generate-token
 ```
 
 ### LiveKit Configuration
