@@ -8,6 +8,8 @@ cd "$PROJECT_ROOT"
 DOMAIN=${DOMAIN:-hochip.ru}
 EMAIL=${LETSENCRYPT_EMAIL:-}
 ACTION=${1:-deploy}
+DEFAULT_LIVEKIT_URL="wss://${DOMAIN}/rtc"
+DEFAULT_TOKEN_ENDPOINT="/generate-token"
 
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD=(docker compose)
@@ -156,6 +158,9 @@ EOF
 main() {
   require_tools
   ensure_project_root
+
+  export VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL:-$DEFAULT_LIVEKIT_URL}
+  export VITE_TOKEN_ENDPOINT=${VITE_TOKEN_ENDPOINT:-$DEFAULT_TOKEN_ENDPOINT}
 
   case "$ACTION" in
     deploy)

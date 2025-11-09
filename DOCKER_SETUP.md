@@ -49,6 +49,7 @@ open http://localhost:3000
 - **Команда**: `npm run dev -- --host 0.0.0.0`
 - **Volumes**: Hot reload для разработки
 - **API**: вспомогательный токен-сервер на `3001`, доступен через `https://<домен>/generate-token` (прокси nginx)
+- **LiveKit URL**: по умолчанию `wss://<домен>/rtc`, можно переопределить `VITE_LIVEKIT_URL`
 
 ### 1a. Nginx (Reverse Proxy)
 - **Порты**: 80 (HTTP), 443 (HTTPS)
@@ -176,6 +177,7 @@ VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
 VITE_SUPABASE_ANON_KEY=your_key_here
 # Опционально: переопределение эндпоинта токен-сервера
 # VITE_TOKEN_ENDPOINT=/generate-token
+# Для препрода: VITE_LIVEKIT_URL=wss://yourdomain.com/rtc
 ```
 
 ### LiveKit Configuration

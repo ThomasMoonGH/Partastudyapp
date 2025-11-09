@@ -32,11 +32,8 @@ services:
     expose:
       - "3000"
       - "3001"
-    ports:
-      - "3000:3000"
-      - "3001:3001"
     environment:
-      - VITE_LIVEKIT_URL=ws://localhost:7880
+      - VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL:-}
       - VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
       - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZnZ0YmdhbGNod29pbXd0enN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4ODgwOTYsImV4cCI6MjA3NjQ2NDA5Nn0.QW9TAXDbPpnutULtCGmSjnM619bP1imq6vSObv6K1nY
     depends_on:

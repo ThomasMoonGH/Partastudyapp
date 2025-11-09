@@ -116,8 +116,19 @@ export function useLiveKit({
       tokenRef.current = token;
 
       // Создаем конфигурацию
+      const envLivekitUrl = ((import.meta as any).env?.VITE_LIVEKIT_URL as string | undefined)?.trim();
+      let livekitUrl = envLivekitUrl;
+      if (
+        !livekitUrl ||
+        /^ws:\/\/localhost/i.test(livekitUrl) ||
+        /^ws:\/\/livekit/i.test(livekitUrl)
+      ) {
+        const origin = window.location.origin.replace(/^http/i, 'ws');
+        livekitUrl = `${origin}/rtc`;
+      }
+
       const config: LiveKitConnectionConfig = {
-        livekitUrl: (import.meta as any).env?.VITE_LIVEKIT_URL || 'ws://localhost:7880',
+        livekitUrl,
         token,
         roomName: roomNameRef.current,
         participantName: userName,
