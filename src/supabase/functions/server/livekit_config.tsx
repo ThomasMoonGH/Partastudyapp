@@ -1,12 +1,12 @@
 // LiveKit configuration for Supabase Edge Functions
 
 export const LIVEKIT_CONFIG = {
-  // API ключи для LiveKit (в production замените на безопасные!)
-  API_KEY: Deno.env.get('LIVEKIT_API_KEY') || 'devkey',
-  API_SECRET: Deno.env.get('LIVEKIT_API_SECRET') || 'devkey_secret_partastudy_2025',
+  // API ключи для LiveKit Cloud (задаются через переменные окружения)
+  API_KEY: Deno.env.get('LIVEKIT_API_KEY') ?? '',
+  API_SECRET: Deno.env.get('LIVEKIT_API_SECRET') ?? '',
   
-  // LiveKit server URL
-  URL: Deno.env.get('LIVEKIT_URL') || 'ws://localhost:7880',
+  // LiveKit Cloud URL
+  URL: Deno.env.get('LIVEKIT_URL') || 'wss://partastudyapp-3jhslurr.livekit.cloud',
   
   // Настройки токенов
   TOKEN_TTL: '24h', // Время жизни токена

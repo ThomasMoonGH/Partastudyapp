@@ -8,8 +8,9 @@ cd "$PROJECT_ROOT"
 DOMAIN=${DOMAIN:-hochip.ru}
 EMAIL=${LETSENCRYPT_EMAIL:-}
 ACTION=${1:-deploy}
-DEFAULT_LIVEKIT_URL="wss://${DOMAIN}/rtc"
+DEFAULT_LIVEKIT_URL="wss://partastudyapp-3jhslurr.livekit.cloud"
 DEFAULT_TOKEN_ENDPOINT="/generate-token"
+DEFAULT_LIVEKIT_HOST="wss://partastudyapp-3jhslurr.livekit.cloud"
 
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD=(docker compose)
@@ -103,8 +104,8 @@ deploy_stack() {
   echo "🚀 Сборка образа приложения..."
   compose build app
 
-  echo "📦 Запуск внутренних сервисов (app, livekit, redis)..."
-  compose up -d app livekit redis
+  echo "📦 Запуск внутренних сервисов (app)..."
+  compose up -d app
 
   echo "🌐 Запуск nginx..."
   compose up -d nginx
@@ -161,6 +162,11 @@ main() {
 
   export VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL:-$DEFAULT_LIVEKIT_URL}
   export VITE_TOKEN_ENDPOINT=${VITE_TOKEN_ENDPOINT:-$DEFAULT_TOKEN_ENDPOINT}
+  export LIVEKIT_HOST=${LIVEKIT_HOST:-$DEFAULT_LIVEKIT_HOST}
+
+  if [[ -z "${LIVEKIT_API_KEY:-}" || -z "${LIVEKIT_API_SECRET:-}" ]]; then
+    echo "⚠️  LIVEKIT_API_KEY / LIVEKIT_API_SECRET не заданы. token-server не сможет выдавать токены для LiveKit Cloud."
+  fi
 
   case "$ACTION" in
     deploy)

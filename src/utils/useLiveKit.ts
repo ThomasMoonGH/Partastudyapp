@@ -64,7 +64,13 @@ export function useLiveKit({
   const roomNameRef = useRef<string>(`session-${sessionId}`);
 
   // Получение токена от сервера в контейнере
-  const fetchLiveKitToken = useCallback(async (): Promise<string> => {
+  const DEFAULT_LIVEKIT_URL = 'wss://partastudyapp-3jhslurr.livekit.cloud';
+
+  const fetchLiveKitToken = useCallback(async (): Promise<{
+    token: string;
+    livekitUrl?: string | null;
+    expiresIn?: number;
+  }> => {
     try {
       console.log('Generating LiveKit token for:', {
         roomName: roomNameRef.current,
@@ -95,8 +101,11 @@ export function useLiveKit({
       }
 
       const data = await response.json();
-      console.log('Generated token:', data.token);
-      return data.token;
+      if (!data?.token) {
+        throw new Error('Token server returned empty token');
+      }
+      console.log('Generated token:', data);
+      return data;
     } catch (error) {
       console.error('Error fetching LiveKit token:', error);
       throw error;
@@ -112,20 +121,18 @@ export function useLiveKit({
       setError(null);
 
       // Получаем токен
-      const token = await fetchLiveKitToken();
+      const { token, livekitUrl: tokenLivekitUrl } = await fetchLiveKitToken();
       tokenRef.current = token;
 
       // Создаем конфигурацию
       const envLivekitUrl = ((import.meta as any).env?.VITE_LIVEKIT_URL as string | undefined)?.trim();
-      let livekitUrl = envLivekitUrl;
-      if (
-        !livekitUrl ||
-        /^ws:\/\/localhost/i.test(livekitUrl) ||
-        /^ws:\/\/livekit/i.test(livekitUrl)
-      ) {
-        const origin = window.location.origin.replace(/^http/i, 'ws');
-        livekitUrl = `${origin}/rtc`;
-      }
+      const sanitizedEnvUrl =
+        envLivekitUrl && !/^ws:\/\/localhost/i.test(envLivekitUrl) ? envLivekitUrl : undefined;
+
+      const livekitUrl =
+        tokenLivekitUrl?.trim() ||
+        sanitizedEnvUrl ||
+        DEFAULT_LIVEKIT_URL;
 
       const config: LiveKitConnectionConfig = {
         livekitUrl,

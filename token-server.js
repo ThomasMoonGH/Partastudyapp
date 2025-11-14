@@ -1,36 +1,42 @@
 // Простой HTTP сервер для генерации LiveKit токенов
 const http = require('http');
-const crypto = require('crypto');
+const { AccessToken, VideoGrant } = require('livekit-server-sdk');
 
-function generateLiveKitToken(apiKey, apiSecret, roomName, participantName) {
-  const header = {
-    alg: 'HS256',
-    typ: 'JWT'
-  };
-  
-  const payload = {
-    iss: apiKey,
-    sub: participantName,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600, // 1 час
-    video: {
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
+const LIVEKIT_HOST = process.env.LIVEKIT_HOST || process.env.VITE_LIVEKIT_URL;
+
+if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
+  console.warn('⚠️  LIVEKIT_API_KEY или LIVEKIT_API_SECRET не заданы. Генерация токенов будет возвращать 500.');
+}
+
+if (!LIVEKIT_HOST) {
+  console.warn('⚠️  LIVEKIT_HOST не задан. Клиенту будет возвращён пустой livekitUrl.');
+}
+
+function generateLiveKitToken(roomName, participantName, metadata) {
+  if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
+    throw new Error('LiveKit credentials are not configured.');
+  }
+
+  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+    identity: participantName,
+    metadata,
+  });
+
+  at.addGrant(
+    new VideoGrant({
       room: roomName,
       roomJoin: true,
       canPublish: true,
       canSubscribe: true,
-      canPublishData: true
-    }
-  };
-  
-  const headerB64 = Buffer.from(JSON.stringify(header)).toString('base64url');
-  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  
-  const signature = crypto
-    .createHmac('sha256', apiSecret)
-    .update(`${headerB64}.${payloadB64}`)
-    .digest('base64url');
-  
-  return `${headerB64}.${payloadB64}.${signature}`;
+      canPublishData: true,
+    }),
+  );
+
+  at.setValidFor(60 * 60); // 1 час
+
+  return at.toJwt();
 }
 
 const server = http.createServer((req, res) => {
@@ -55,20 +61,25 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const data = JSON.parse(body);
-        const { roomName, participantName } = data;
-        
-        const token = generateLiveKitToken(
-          'devkey', 
-          'devkey_secret_partastudy_2025', 
-          roomName, 
-          participantName
-        );
+        const { roomName, participantName, metadata } = data;
+
+        if (!roomName || !participantName) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            error: 'roomName and participantName are required',
+          }));
+          return;
+        }
+
+        const token = generateLiveKitToken(roomName, participantName, metadata);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
           success: true, 
           token,
-          livekitUrl: 'ws://localhost:7880'
+          livekitUrl: LIVEKIT_HOST || null,
+          expiresIn: 3600,
         }));
       } catch (error) {
         res.writeHead(500, { 'Content-Type': 'application/json' });

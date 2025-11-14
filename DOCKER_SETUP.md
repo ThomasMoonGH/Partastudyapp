@@ -26,17 +26,12 @@ open http://localhost:3000
 │   hochip.ru ───────────► │ (reverse)   │                           │
 │                          └──────┬──────┘                           │
 │                                 │                                  │
-│  ┌─────────────┐  ┌─────────────▼┐  ┌─────────────┐               │
-│  │    App      │  │   LiveKit    │  │    Redis    │               │
-│  │ (Vite:3000) │  │ (WS:7880)    │  │   (6379)    │               │
-│  └──────┬──────┘  └──────┬───────┘  └──────┬──────┘               │
-│         │                │                │                       │
-│         └────────────────┼────────────────┘                       │
-│                          │                                          │
-│         ┌────────────────▼────────────────┐                        │
-│         │       Bridge Network            │                        │
-│         │         (partastudy)            │                        │
-│         └────────────────────────────────┘                        │
+│                          ┌──────▼──────┐                           │
+│                          │    App      │                           │
+│                          │ (Vite:3000) │                           │
+│                          └──────┬──────┘                           │
+│                                 │                                  │
+│                   (LiveKit Cloud, Supabase, etc.)                  │
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
@@ -63,17 +58,6 @@ open http://localhost:3000
 - **Назначение**: выпуск и продление SSL-сертификатов для `hochip.ru`
 - **Volumes**: общая папка `/etc/letsencrypt` и webroot `/var/www/certbot`
 
-### 2. LiveKit (Video Server)
-- **Порты**: доступны только внутри Docker сети (`expose`)
-- **Технология**: LiveKit Server
-- **Конфигурация**: `livekit-config.yaml`
-- **Зависимости**: Redis
-
-### 3. Redis (Cache)
-- **Порт**: 6379 (только внутри Docker сети)
-- **Технология**: Redis 7 Alpine
-- **Назначение**: Хранение состояния LiveKit
-
 ## HTTPS и Let’s Encrypt
 
 ### 1. Первичная выдача сертификата
@@ -91,7 +75,7 @@ docker compose run --rm \
   -m you@example.com
 
 # После успешного выпуска перезапустите стек
-docker compose up -d nginx app livekit redis
+docker compose up -d nginx app
 ```
 
 Certbot сохранит сертификаты и вспомогательные файлы (`options-ssl-nginx.conf`, `ssl-dhparams.pem`) в volume `certbot-certs`, который используется nginx-ом.
@@ -113,13 +97,15 @@ docker compose exec nginx nginx -s reload
 ### 3. Скрипт `scripts/preprod.sh`
 
 Автоматизирует подготовку препрод-окружения:
-- `deploy` — проверяет/выпускает сертификат (использует `LETSENCRYPT_EMAIL`), собирает `app`, запускает `redis`, `livekit`, `app`, `nginx`.
+- `deploy` — проверяет/выпускает сертификат (использует `LETSENCRYPT_EMAIL`), собирает `app`, запускает `app` и `nginx`, прокидывает переменные для LiveKit Cloud.
 - `renew` — выполняет `certbot renew` и перезагружает `nginx`.
 - `issue` — принудительная начальная выдача сертификата (если том пустой).
 
 Переменные окружения:
 - `DOMAIN` (по умолчанию `hochip.ru`)
 - `LETSENCRYPT_EMAIL` — email обязательный для первого выпуска.
+- `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` — креды LiveKit Cloud.
+- `LIVEKIT_HOST` — URL облачного LiveKit (`wss://partastudyapp-3jhslurr.livekit.cloud` по умолчанию).
 
 ## Команды
 
@@ -134,8 +120,6 @@ docker-compose logs -f
 
 # Просмотр логов конкретного сервиса
 docker-compose logs -f app
-docker-compose logs -f livekit
-docker-compose logs -f redis
 
 # Логи nginx
 docker compose logs -f nginx
@@ -145,7 +129,6 @@ docker-compose down
 
 # Перезапуск сервиса
 docker-compose restart app
-docker-compose restart livekit
 
 # Пересборка и запуск
 docker-compose up --build -d
@@ -159,7 +142,6 @@ docker-compose ps
 
 # Войти в контейнер
 docker-compose exec app sh
-docker-compose exec livekit sh
 
 # Проверить сеть
 docker network ls
@@ -172,21 +154,25 @@ docker network inspect partastudyapp_partastudy
 
 Создайте `.env.development`:
 ```bash
-VITE_LIVEKIT_URL=ws://localhost:7880
+VITE_LIVEKIT_URL=wss://partastudyapp-3jhslurr.livekit.cloud
 VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
 VITE_SUPABASE_ANON_KEY=your_key_here
 # Опционально: переопределение эндпоинта токен-сервера
 # VITE_TOKEN_ENDPOINT=/generate-token
-# Для препрода: VITE_LIVEKIT_URL=wss://yourdomain.com/rtc
+# Для препрода: VITE_LIVEKIT_URL=wss://partastudyapp-3jhslurr.livekit.cloud
 ```
 
-### LiveKit Configuration
+### LiveKit Cloud Secrets
 
-Файл `livekit-config.yaml`:
-- API ключи для development
-- Redis подключение
-- Настройки комнат (max 2 участника)
-- Логирование debug
+Для локального запуска задайте:
+
+```bash
+export LIVEKIT_API_KEY=your_cloud_key
+export LIVEKIT_API_SECRET=your_cloud_secret
+export LIVEKIT_HOST=wss://partastudyapp-3jhslurr.livekit.cloud
+```
+
+Эти переменные нужны токен-серверу (`token-server.js`) и Supabase Edge Function.
 
 ## Troubleshooting
 
@@ -200,19 +186,6 @@ docker-compose logs app
 docker-compose up --build app
 ```
 
-### Проблема: LiveKit не подключается
-
-```bash
-# Проверить что Redis работает
-docker-compose logs redis
-
-# Проверить конфигурацию LiveKit
-docker-compose exec livekit cat /etc/livekit.yaml
-
-# Проверить порты
-netstat -an | grep 7880
-```
-
 ### Проблема: Видео не работает
 
 1. **Проверьте HTTPS**: Браузеры требуют HTTPS для доступа к камере
@@ -224,7 +197,6 @@ netstat -an | grep 7880
 ```bash
 # Найти процесс на порту
 lsof -i :3000
-lsof -i :7880
 
 # Убить процесс
 kill -9 <PID>
@@ -236,7 +208,7 @@ kill -9 <PID>
 
 1. **Создайте `.env.production`**:
 ```bash
-VITE_LIVEKIT_URL=wss://yourdomain.com/livekit
+VITE_LIVEKIT_URL=wss://partastudyapp-3jhslurr.livekit.cloud
 VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
 VITE_SUPABASE_ANON_KEY=your_key_here
 ```
@@ -286,9 +258,6 @@ docker volume prune -f
 
 # Просмотр использования ресурсов
 docker stats
-
-# Бэкап volumes
-docker run --rm -v partastudyapp_redis_data:/data -v $(pwd):/backup alpine tar czf /backup/redis-backup.tar.gz -C /data .
 ```
 
 ## Мониторинг
@@ -298,12 +267,6 @@ docker run --rm -v partastudyapp_redis_data:/data -v $(pwd):/backup alpine tar c
 ```bash
 # App health
 curl http://localhost:3000
-
-# LiveKit health
-curl http://localhost:7880
-
-# Redis health
-docker-compose exec redis redis-cli ping
 ```
 
 ### Логи
@@ -315,10 +278,10 @@ docker-compose logs --tail=100
 # Только ошибки
 docker-compose logs | grep -i error
 
-# LiveKit debug
-docker-compose logs livekit | grep -i "room\|participant\|track"
+# Логи nginx
+docker compose logs --tail=100 nginx
 ```
 
 ---
 
-**Готово!** Теперь у вас есть полноценная Docker инфраструктура для разработки и тестирования LiveKit видеокомнат! 🚀
+**Готово!** Теперь у вас есть Docker-инфраструктура для приложения PartaStudy с внешним LiveKit Cloud! 🚀

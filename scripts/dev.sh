@@ -32,7 +32,7 @@ echo "📦 Проверка зависимостей..."
 if [ ! -f ".env.development" ]; then
     echo "⚠️  .env.development не найден, создаю..."
     cat > .env.development << 'EOF'
-VITE_LIVEKIT_URL=ws://localhost:7880
+VITE_LIVEKIT_URL=wss://partastudyapp-3jhslurr.livekit.cloud
 VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZnZ0YmdhbGNod29pbXd0enN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4ODgwOTYsImV4cCI6MjA3NjQ2NDA5Nn0.QW9TAXDbPpnutULtCGmSjnM619bP1imq6vSObv6K1nY
 EOF
@@ -52,11 +52,6 @@ if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null 2>&1; then
     lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 fi
 
-if lsof -Pi :7880 -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo "⚠️  Порт 7880 занят, освобождаю..."
-    lsof -ti:7880 | xargs kill -9 2>/dev/null || true
-fi
-
 echo ""
 
 # Запуск сервисов
@@ -65,34 +60,6 @@ docker-compose up -d
 
 echo ""
 echo "⏳ Ожидание запуска сервисов..."
-
-# Ожидание запуска Redis
-echo "   Redis..."
-for i in {1..30}; do
-    if docker-compose exec redis redis-cli ping >/dev/null 2>&1; then
-        break
-    fi
-    if [ $i -eq 30 ]; then
-        echo "❌ Redis не запустился"
-        docker-compose logs redis
-        exit 1
-    fi
-    sleep 1
-done
-
-# Ожидание запуска LiveKit
-echo "   LiveKit..."
-for i in {1..30}; do
-    if curl -s http://localhost:7880 >/dev/null 2>&1; then
-        break
-    fi
-    if [ $i -eq 30 ]; then
-        echo "❌ LiveKit не запустился"
-        docker-compose logs livekit
-        exit 1
-    fi
-    sleep 1
-done
 
 # Ожидание запуска App
 echo "   App..."
@@ -121,8 +88,6 @@ echo "🎉 Partastudyapp готов к работе!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "🌐 Приложение: http://localhost:3000"
-echo "🎥 LiveKit: ws://localhost:7880"
-echo "📊 Redis: localhost:6379"
 echo ""
 echo "📋 Полезные команды:"
 echo "   Логи:       docker-compose logs -f"

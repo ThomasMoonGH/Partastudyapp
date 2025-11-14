@@ -27,8 +27,6 @@ docker-compose down 2>/dev/null || true
 # Очистка портов
 echo "🧹 Очистка портов..."
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-lsof -ti:7880 | xargs kill -9 2>/dev/null || true
-lsof -ti:6379 | xargs kill -9 2>/dev/null || true
 
 echo ""
 
@@ -39,33 +37,7 @@ docker-compose up -d
 echo ""
 echo "⏳ Ожидание запуска сервисов..."
 
-# Проверка Redis
-echo "   Redis..."
-for i in {1..30}; do
-    if docker-compose exec redis redis-cli ping >/dev/null 2>&1; then
-        break
-    fi
-    if [ $i -eq 30 ]; then
-        echo "❌ Redis не запустился"
-        docker-compose logs redis
-        exit 1
-    fi
-    sleep 1
-done
 
-# Проверка LiveKit
-echo "   LiveKit..."
-for i in {1..30}; do
-    if curl -s http://localhost:7880 >/dev/null 2>&1; then
-        break
-    fi
-    if [ $i -eq 30 ]; then
-        echo "❌ LiveKit не запустился"
-        docker-compose logs livekit
-        exit 1
-    fi
-    sleep 1
-done
 
 # Проверка App
 echo "   App..."
@@ -94,8 +66,6 @@ echo "🎉 Интеграция готова к тестированию!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "🌐 Приложение: http://localhost:3000"
-echo "🎥 LiveKit: ws://localhost:7880"
-echo "📊 Redis: localhost:6379"
 echo ""
 echo "📋 Для тестирования:"
 echo "   1. Откройте http://localhost:3000 в двух браузерах"

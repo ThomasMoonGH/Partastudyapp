@@ -1,27 +1,4 @@
 services:
-  redis:
-    image: redis:7-alpine
-    expose:
-      - "6379"
-    networks:
-      - partastudy
-    restart: unless-stopped
-
-  livekit:
-    image: livekit/livekit-server:latest
-    command: --config /etc/livekit.yaml --dev
-    expose:
-      - "7880"
-      - "7881"
-      - "50000-50100/udp"
-    volumes:
-      - ./livekit-config.yaml:/etc/livekit.yaml
-    depends_on:
-      - redis
-    networks:
-      - partastudy
-    restart: unless-stopped
-
   app:
     build:
       context: .
@@ -33,11 +10,12 @@ services:
       - "3000"
       - "3001"
     environment:
-      - VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL:-}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - LIVEKIT_HOST=${LIVEKIT_HOST:-wss://partastudyapp-3jhslurr.livekit.cloud}
+      - VITE_LIVEKIT_URL=${VITE_LIVEKIT_URL:-wss://partastudyapp-3jhslurr.livekit.cloud}
       - VITE_SUPABASE_URL=https://bkfvtbgalchwoimwtzsu.supabase.co
       - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrZnZ0YmdhbGNod29pbXd0enN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4ODgwOTYsImV4cCI6MjA3NjQ2NDA5Nn0.QW9TAXDbPpnutULtCGmSjnM619bP1imq6vSObv6K1nY
-    depends_on:
-      - livekit
     networks:
       - partastudy
     restart: unless-stopped
