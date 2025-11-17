@@ -19,7 +19,9 @@ async function generateLiveKitToken(apiKey, apiSecret, roomName, participantName
     },
   });
 
-  at.ttl = 60 * 60;
+  const now = Math.floor(Date.now() / 1000);
+  at.nbf = now;
+  at.exp = now + 60 * 60;
 
   return await at.toJwt();
 }

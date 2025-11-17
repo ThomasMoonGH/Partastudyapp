@@ -34,7 +34,9 @@ async function generateLiveKitToken(roomName, participantName, metadata) {
     },
   });
 
-  at.ttl = 60 * 60; // 1 час
+  const now = Math.floor(Date.now() / 1000);
+  at.nbf = now;
+  at.exp = now + 60 * 60; // 1 час
 
   return await at.toJwt();
 }
