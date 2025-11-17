@@ -1,6 +1,6 @@
 // Простой HTTP сервер для генерации LiveKit токенов
 const http = require('http');
-const { AccessToken, VideoGrant } = require('livekit-server-sdk');
+const { AccessToken } = require('livekit-server-sdk');
 
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
@@ -24,15 +24,15 @@ function generateLiveKitToken(roomName, participantName, metadata) {
     metadata,
   });
 
-  at.addGrant(
-    new VideoGrant({
+  at.addGrant({
+    video: {
       room: roomName,
       roomJoin: true,
       canPublish: true,
       canSubscribe: true,
       canPublishData: true,
-    }),
-  );
+    },
+  });
 
   at.setValidFor(60 * 60); // 1 час
 

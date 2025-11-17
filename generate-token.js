@@ -1,7 +1,7 @@
 // Простой скрипт для генерации LiveKit токена
 // Используется для тестирования без Supabase
 
-const { AccessToken, VideoGrant } = require('livekit-server-sdk');
+const { AccessToken } = require('livekit-server-sdk');
 
 function generateLiveKitToken(apiKey, apiSecret, roomName, participantName, metadata) {
   const at = new AccessToken(apiKey, apiSecret, {
@@ -9,15 +9,15 @@ function generateLiveKitToken(apiKey, apiSecret, roomName, participantName, meta
     metadata,
   });
 
-  at.addGrant(
-    new VideoGrant({
+  at.addGrant({
+    video: {
       room: roomName,
       roomJoin: true,
       canPublish: true,
       canSubscribe: true,
       canPublishData: true,
-    }),
-  );
+    },
+  });
 
   at.setValidFor(60 * 60);
 
