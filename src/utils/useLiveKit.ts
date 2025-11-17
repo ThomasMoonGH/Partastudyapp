@@ -65,6 +65,7 @@ export function useLiveKit({
   const identityRef = useRef<string>(
     `${userName}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`
   );
+  const localStreamRef = useRef<MediaStream | null>(null);
 
   // Получение токена от сервера в контейнере
   const DEFAULT_LIVEKIT_URL = 'wss://partastudyapp-3jhslurr.livekit.cloud';
@@ -135,7 +136,7 @@ export function useLiveKit({
         livekitUrl,
         token,
         roomName: roomNameRef.current,
-        participantName: userName,
+        participantName: identityRef.current,
       };
 
       // Создаем соединение
@@ -147,6 +148,7 @@ export function useLiveKit({
         },
         onDisconnected: () => {
           setIsConnected(false);
+          localStreamRef.current = null;
           setLocalStream(null);
           setRemoteStream(null);
           console.log('LiveKit disconnected');
@@ -214,6 +216,7 @@ export function useLiveKit({
         console.log('📹 Video tracks:', stream.getVideoTracks());
         console.log('📹 Audio tracks:', stream.getAudioTracks());
         
+        localStreamRef.current = stream;
         setLocalStream(stream);
         setIsVideoEnabled(true);
         setIsAudioEnabled(true);
@@ -245,6 +248,7 @@ export function useLiveKit({
       const updatedStream = connectionRef.current.getLocalStream();
       if (updatedStream) {
         console.log('📹 Updating local stream after toggle:', updatedStream);
+        localStreamRef.current = updatedStream;
         setLocalStream(updatedStream);
       }
       
@@ -270,8 +274,9 @@ export function useLiveKit({
 
   // Отключение
   const disconnect = useCallback(async () => {
-    if (localStream) {
-      localStream.getTracks().forEach(track => {
+    const currentStream = localStreamRef.current;
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => {
         try {
           track.stop();
         } catch (err) {
@@ -285,11 +290,12 @@ export function useLiveKit({
     }
     setIsConnected(false);
     setLocalStream(null);
+    localStreamRef.current = null;
     setRemoteStream(null);
     setHasRequestedMedia(false);
     setIsVideoEnabled(false);
     setIsAudioEnabled(false);
-  }, [localStream]);
+  }, []);
 
   // Переподключение
   const reconnect = useCallback(async () => {
