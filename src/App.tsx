@@ -630,11 +630,7 @@ export default function App() {
   
   // Debug logging
   useEffect(() => {
-    if (currentView === 'active') {
-      console.log('Active view - activeSessionId:', activeSessionId);
-      console.log('Active view - activeSession:', activeSession);
-      console.log('Active view - sessions:', sessions);
-    }
+    // keep hook for potential side-effects; no logging needed in production
   }, [currentView, activeSessionId, activeSession, sessions]);
 
   // Reset openChatWithPartner when leaving sessions view

@@ -93,26 +93,14 @@ export function ActiveSession({
 
   // Attach local stream to video element
   useEffect(() => {
-    console.log('🎥 Local stream changed:', localStream, 'videoEnabled:', videoEnabled);
     if (localStream && videoEnabled && localVideoRef.current) {
-      console.log('🎥 Setting local video srcObject:', localStream);
-      console.log('🎥 Video element:', localVideoRef.current);
-      console.log('🎥 Stream tracks:', localStream.getTracks());
-      console.log('🎥 Video tracks:', localStream.getVideoTracks());
-      
       localVideoRef.current.srcObject = localStream;
       
       // Проверяем состояние после установки
       setTimeout(() => {
         if (localVideoRef.current) {
-          console.log('🎥 Video srcObject after set:', localVideoRef.current.srcObject);
-          console.log('🎥 Video readyState:', localVideoRef.current.readyState);
-          console.log('🎥 Video paused:', localVideoRef.current.paused);
-          console.log('🎥 Video currentTime:', localVideoRef.current.currentTime);
-          
           // Попробуем запустить видео программно, если оно на паузе
           if (localVideoRef.current.paused) {
-            console.log('🎥 Video is paused, trying to play...');
             localVideoRef.current.play().catch((error) => {
               console.error('🎥 Failed to play video:', error);
             });
@@ -125,12 +113,10 @@ export function ActiveSession({
   // Синхронизируем состояние кнопок с LiveKit
   useEffect(() => {
     if (isConnected) {
-      console.log('🔄 Syncing button states - isVideoEnabled:', isVideoEnabled, 'isAudioEnabled:', isAudioEnabled, 'localStream:', !!localStream);
       // Обновляем состояние кнопок на основе LiveKit
       // Видео включено только если есть и локальный поток, и трек включен в LiveKit
       setVideoEnabled(isVideoEnabled && !!localStream);
       setMyMicEnabled(isAudioEnabled);
-      console.log('✅ Button states synced - videoEnabled:', isVideoEnabled && !!localStream, 'myMicEnabled:', isAudioEnabled);
     }
   }, [isConnected, isVideoEnabled, isAudioEnabled, localStream]);
 
@@ -198,22 +184,17 @@ export function ActiveSession({
   };
 
   const handleVideoToggle = async () => {
-    console.log('🎥 Video toggle button clicked!');
-    console.log('Current state - hasRequestedMedia:', hasRequestedMedia, 'videoEnabled:', videoEnabled, 'localStream:', !!localStream);
-    
     // If no local stream, request media access first
     if (!localStream) {
-      console.log('📹 No local stream, requesting media access...');
       await requestMediaAccess();
-      console.log('📹 Media access requested, localStream:', !!localStream);
+      setVideoEnabled(true);
+      setMyMicEnabled(true);
       return; // Exit after requesting media access
     }
 
     try {
-      console.log('🔄 Toggling video, current state:', videoEnabled);
       await livekitToggleVideo();
       // Не обновляем состояние здесь - оно обновится через useEffect синхронизации
-      console.log('✅ Video toggled, waiting for state sync...');
     } catch (error) {
       console.error('❌ Failed to toggle video:', error);
       toast.error('Не удалось переключить камеру');
@@ -380,7 +361,6 @@ export function ActiveSession({
             <div className="grid md:grid-cols-2 gap-4 mb-4">
               <Card className="bg-gray-800 border-gray-700 overflow-hidden">
                 <div className="aspect-video bg-gray-900 flex items-center justify-center relative">
-                  {console.log('🎥 Video render check - videoEnabled:', videoEnabled, 'localStream:', !!localStream, 'condition:', videoEnabled && localStream)}
                   {videoEnabled && localStream ? (
                     <video
                       ref={localVideoRef}
