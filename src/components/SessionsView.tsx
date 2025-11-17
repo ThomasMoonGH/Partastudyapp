@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { ChatPanel, Message } from "./ChatPanel";
 
+const DEMO_SESSION_ID = 'demo-room';
+
 interface Session {
   id: string;
   date: Date;
@@ -43,6 +45,7 @@ export function SessionsView({
   const [selectedChatSession, setSelectedChatSession] = useState<Session | null>(null);
   const [showUserMissedWarning, setShowUserMissedWarning] = useState(true);
   const [showPartnerMissedWarning, setShowPartnerMissedWarning] = useState(true);
+  const demoSession = sessions.find(s => s.id === DEMO_SESSION_ID);
   
   // Update selected chat session when sessions change
   useEffect(() => {
@@ -135,7 +138,7 @@ export function SessionsView({
                   Избранное
                 </Badge>
               )}
-              {session.id.startsWith('demo-') && (
+              {session.id.startsWith('demo') && (
                 <Badge variant="outline" className="bg-purple-50 border-purple-300 text-purple-700">
                   <Sparkles className="w-3 h-3 mr-1" />
                   ДЕМО
@@ -233,6 +236,42 @@ export function SessionsView({
         <h2 className="text-2xl mb-2">Мои учебные сессии</h2>
         <p className="text-gray-600">Управляйте предстоящими и прошлыми учебными сессиями</p>
       </div>
+
+      {demoSession?.status === 'waiting' && (
+        <Card className="p-5 mb-8 bg-purple-50 border-purple-200">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-start gap-3 text-purple-900">
+              <Sparkles className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="font-semibold mb-1">Демо-созвон уже активен</h4>
+                <p className="text-sm text-purple-800">
+                  В комнате демо-созвона ожидает участник. Присоединитесь, чтобы протестировать видеосвязь вместе.
+                  Можно открыть эту страницу во второй вкладке или отправить ссылку коллегe.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                onClick={() => onJoinSession(demoSession.id)}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <Video className="w-4 h-4 mr-2" />
+                Присоединиться к демо
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.open(window.location.href, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+              >
+                Открыть вторую вкладку
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="space-y-8">
         <div>

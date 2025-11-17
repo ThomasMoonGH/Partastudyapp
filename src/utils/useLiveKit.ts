@@ -273,6 +273,15 @@ export function useLiveKit({
 
   // Отключение
   const disconnect = useCallback(async () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (err) {
+          console.warn('Failed to stop local track', err);
+        }
+      });
+    }
     if (connectionRef.current) {
       await connectionRef.current.disconnect();
       connectionRef.current = null;
@@ -281,7 +290,9 @@ export function useLiveKit({
     setLocalStream(null);
     setRemoteStream(null);
     setHasRequestedMedia(false);
-  }, []);
+    setIsVideoEnabled(false);
+    setIsAudioEnabled(false);
+  }, [localStream]);
 
   // Переподключение
   const reconnect = useCallback(async () => {
@@ -308,11 +319,9 @@ export function useLiveKit({
   // Cleanup при размонтировании
   useEffect(() => {
     return () => {
-      if (connectionRef.current) {
-        connectionRef.current.disconnect();
-      }
+      void disconnect();
     };
-  }, []);
+  }, [disconnect]);
 
   return {
     localStream,

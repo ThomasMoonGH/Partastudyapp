@@ -12,6 +12,8 @@ import { toast } from "sonner@2.0.3";
 import { Button } from "./components/ui/button";
 import { Message } from "./components/ChatPanel";
 
+const DEMO_SESSION_ID = 'demo-room';
+
 interface Session {
   id: string;
   date: Date;
@@ -566,18 +568,39 @@ export default function App() {
     }));
   };
 
+  const handleDemoPresenceChange = (present: boolean) => {
+    setSessions(prev =>
+      prev.map(s =>
+        s.id === DEMO_SESSION_ID
+          ? { ...s, status: present ? ('upcoming' as const) : ('waiting' as const) }
+          : s
+      )
+    );
+  };
+
   const handleStartDemoCall = () => {
+    // Проверяем, есть ли уже демо-сессия в списке
+    const existingDemo = sessions.find(s => s.id === DEMO_SESSION_ID);
+    if (existingDemo) {
+      toast.info('Подключаемся к демо-созвону', {
+        description: 'В этой комнате уже может ожидать участник — подключаем вас к нему.'
+      });
+      setActiveSessionId(DEMO_SESSION_ID);
+      setCurrentView('active');
+      return;
+    }
+
     // Создаём демо-сессию, которая начинается прямо сейчас
     const now = new Date();
     const demoSession: Session = {
-      id: `demo-${Date.now()}`,
+      id: DEMO_SESSION_ID,
       date: now,
       time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false }),
       partner: { 
         name: 'Демо-партнёр', 
         initials: 'ДП' 
       },
-      status: 'upcoming',
+      status: 'waiting',
       isFavorite: false,
       messages: [
         {
@@ -590,7 +613,7 @@ export default function App() {
       missedByUser: false
     };
 
-    setSessions(prev => [demoSession, ...prev]);
+    setSessions(prev => [demoSession, ...prev.filter(s => s.id !== DEMO_SESSION_ID)]);
     
     toast.success('Демо-сессия создана!', {
       description: 'Подключаемся к демо-созвону...'
@@ -702,6 +725,7 @@ export default function App() {
           onToggleFavorite={() => handleToggleFavorite(activeSession.id)}
           onSendMessage={(text) => handleSendMessage(activeSession.id, text)}
           messages={activeSession.messages}
+          onDemoPresenceChange={handleDemoPresenceChange}
         />
       )}
 

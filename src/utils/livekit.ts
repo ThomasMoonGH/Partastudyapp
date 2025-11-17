@@ -75,6 +75,16 @@ export class LiveKitConnection {
       this.isConnected = false;
       this.callbacks.onDisconnected?.();
     }
+    if (this.localMediaStream) {
+      this.localMediaStream.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (err) {
+          console.warn('Failed to stop track on disconnect', err);
+        }
+      });
+      this.localMediaStream = null;
+    }
   }
 
   async enableCameraAndMicrophone(): Promise<MediaStream | null> {

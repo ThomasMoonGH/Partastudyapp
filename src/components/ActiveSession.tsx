@@ -34,6 +34,7 @@ interface ActiveSessionProps {
   onToggleFavorite?: () => void;
   onSendMessage: (message: string) => void;
   messages: Message[];
+  onDemoPresenceChange?: (present: boolean) => void;
 }
 
 export function ActiveSession({ 
@@ -45,7 +46,8 @@ export function ActiveSession({
   onEndSession,
   onToggleFavorite,
   onSendMessage,
-  messages
+  messages,
+  onDemoPresenceChange,
 }: ActiveSessionProps) {
   const [videoEnabled, setVideoEnabled] = useState(false);
   const [myMicEnabled, setMyMicEnabled] = useState(true);
@@ -54,6 +56,7 @@ export function ActiveSession({
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showChat, setShowChat] = useState(true);
+  const [hasRemoteParticipant, setHasRemoteParticipant] = useState(false);
   
   // Auto-reconnect state (simplified for LiveKit)
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -79,6 +82,7 @@ export function ActiveSession({
     toggleAudio: livekitToggleAudio,
     peerConnection,
     reconnect,
+    disconnect: livekitDisconnect,
   } = useLiveKit({
     sessionId,
     userId: userEmail,
@@ -178,8 +182,14 @@ export function ActiveSession({
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleEndSession = () => {
+  const handleEndSession = async () => {
     if (showEndConfirm) {
+      try {
+        await livekitDisconnect();
+      } catch (error) {
+        console.warn('Failed to disconnect LiveKit before ending session', error);
+      }
+      setShowEndConfirm(false);
       onEndSession();
     } else {
       setShowEndConfirm(true);
@@ -285,6 +295,17 @@ export function ActiveSession({
 
   // Can only speak if both mics are enabled and media access granted
   const canSpeak = myMicEnabled && partnerMicEnabled && hasRequestedMedia && !mediaPermissionDenied;
+  const isDemoSession = sessionId.startsWith('demo');
+
+  useEffect(() => {
+    setHasRemoteParticipant(!!remoteStream);
+  }, [remoteStream]);
+
+  useEffect(() => {
+    if (isDemoSession && onDemoPresenceChange) {
+      onDemoPresenceChange(hasRemoteParticipant);
+    }
+  }, [isDemoSession, hasRemoteParticipant, onDemoPresenceChange]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -295,7 +316,7 @@ export function ActiveSession({
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-sm">Сессия активна</span>
             </div>
-            {sessionId.startsWith('demo-') && (
+            {isDemoSession && (
               <Badge variant="outline" className="bg-purple-600/20 border-purple-400 text-purple-200">
                 <Sparkles className="w-3 h-3 mr-1" />
                 ДЕМО-РЕЖИМ
@@ -316,6 +337,43 @@ export function ActiveSession({
             Учитесь с {partnerName}
           </Badge>
         </div>
+
+        {isDemoSession && (
+          <Card className={`mb-4 border ${hasRemoteParticipant ? 'bg-green-900/30 border-green-500/50 text-green-100' : 'bg-purple-900/30 border-purple-500/40 text-purple-100'}`}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex items-start gap-3">
+                {hasRemoteParticipant ? (
+                  <CheckCircle2 className="w-5 h-5 mt-0.5 text-green-300 flex-shrink-0" />
+                ) : (
+                  <Sparkles className="w-5 h-5 mt-0.5 text-purple-300 flex-shrink-0" />
+                )}
+                <div>
+                  <h3 className="font-semibold mb-1">
+                    {hasRemoteParticipant ? "К вам подключился участник" : "Демо-комната открыта"}
+                  </h3>
+                  <p className="text-sm opacity-90">
+                    {hasRemoteParticipant
+                      ? "Можно начать совместное тестирование видеосвязи — всё готово!"
+                      : "Чтобы второй участник подключился, откройте эту страницу во второй вкладке или отправьте ссылку коллеге."}
+                  </p>
+                </div>
+              </div>
+              {!hasRemoteParticipant && (
+                <Button
+                  variant="outline"
+                  className="border-purple-300 text-purple-100 hover:bg-purple-800/60 hover:text-white"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.open(window.location.href, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                >
+                  Открыть вторую вкладку
+                </Button>
+              )}
+            </div>
+          </Card>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-4 mb-4">
           <div className="lg:col-span-2">
