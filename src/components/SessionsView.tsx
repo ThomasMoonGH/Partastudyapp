@@ -301,7 +301,7 @@ export function SessionsView({
           ) : (
             <div className="grid gap-4">
               {upcomingSessions.map((session) => (
-                <SessionCard session={session} />
+                <SessionCard key={session.id} session={session} />
               ))}
             </div>
           )}
@@ -377,7 +377,7 @@ export function SessionsView({
             
             <div className="grid gap-4">
               {pastSessions.map((session) => (
-                <SessionCard session={session} isPast />
+                <SessionCard key={session.id} session={session} isPast />
               ))}
             </div>
           </div>

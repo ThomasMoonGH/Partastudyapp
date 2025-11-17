@@ -99,7 +99,7 @@ export class LiveKitConnection {
       console.log('📱 Requesting getUserMedia...');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
-        audio: true
+        audio: true,
       });
       
       console.log('📱 Got media stream from browser:', mediaStream);
@@ -116,10 +116,19 @@ export class LiveKitConnection {
       console.log('✅ Camera and microphone enabled in LiveKit');
       
       // Сохраняем поток для дальнейшего использования
-      this.localMediaStream = mediaStream;
+      const mergedStream = new MediaStream();
+      mediaStream.getTracks().forEach(track => mergedStream.addTrack(track));
+      this.room.localParticipant.getTrackPublications().forEach(pub => {
+        if (pub.track) {
+          const cloned = pub.track.mediaStreamTrack.clone();
+          mergedStream.addTrack(cloned);
+        }
+      });
+
+      this.localMediaStream = mergedStream;
       
-      console.log('✅ Published tracks, returning stream:', mediaStream);
-      return mediaStream;
+      console.log('✅ Published tracks, returning stream:', mergedStream);
+      return mergedStream;
       
     } catch (error) {
       console.error('Failed to enable camera and microphone:', error);
@@ -177,9 +186,9 @@ export class LiveKitConnection {
         }
         
         // Останавливаем старый поток если есть
-        if (this.localMediaStream) {
-          this.localMediaStream.getTracks().forEach(track => track.stop());
-        }
+      if (this.localMediaStream) {
+        this.localMediaStream.getTracks().forEach(track => track.stop());
+      }
         
         // Создаем новый поток
         const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
