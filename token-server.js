@@ -14,7 +14,7 @@ if (!LIVEKIT_HOST) {
   console.warn('⚠️  LIVEKIT_HOST не задан. Клиенту будет возвращён пустой livekitUrl.');
 }
 
-function generateLiveKitToken(roomName, participantName, metadata) {
+async function generateLiveKitToken(roomName, participantName, metadata) {
   if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
     throw new Error('LiveKit credentials are not configured.');
   }
@@ -36,7 +36,7 @@ function generateLiveKitToken(roomName, participantName, metadata) {
 
   at.ttl = 60 * 60; // 1 час
 
-  return at.toJwt();
+  return await at.toJwt();
 }
 
 const server = http.createServer((req, res) => {
@@ -72,7 +72,7 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const token = generateLiveKitToken(roomName, participantName, metadata);
+        const token = await generateLiveKitToken(roomName, participantName, metadata);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
