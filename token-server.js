@@ -58,7 +58,7 @@ const server = http.createServer((req, res) => {
       body += chunk.toString();
     });
     
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const data = JSON.parse(body);
         const { roomName, participantName, metadata } = data;
