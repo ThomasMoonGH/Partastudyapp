@@ -34,7 +34,7 @@ function generateLiveKitToken(roomName, participantName, metadata) {
     },
   });
 
-  at.setValidFor(60 * 60); // 1 час
+  at.ttl = 60 * 60; // 1 час
 
   return at.toJwt();
 }

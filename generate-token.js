@@ -19,7 +19,7 @@ function generateLiveKitToken(apiKey, apiSecret, roomName, participantName, meta
     },
   });
 
-  at.setValidFor(60 * 60);
+  at.ttl = 60 * 60;
 
   return at.toJwt();
 }
