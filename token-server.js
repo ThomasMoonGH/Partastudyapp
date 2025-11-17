@@ -1,30 +1,35 @@
-// Простой HTTP сервер для генерации LiveKit токенов
+// Простой HTTP сервер для генерации LiveKit токенов (без зависимости от SDK)
 const http = require('http');
-const { AccessToken } = require('livekit-server-sdk');
+const crypto = require('crypto');
 
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
-const LIVEKIT_HOST = process.env.LIVEKIT_HOST || process.env.VITE_LIVEKIT_URL;
+const LIVEKIT_HOST =
+  process.env.LIVEKIT_HOST ||
+  process.env.VITE_LIVEKIT_URL ||
+  'wss://partastudyapp-3jhslurr.livekit.cloud';
 
 if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
   console.warn('⚠️  LIVEKIT_API_KEY или LIVEKIT_API_SECRET не заданы. Генерация токенов будет возвращать 500.');
 }
 
-if (!LIVEKIT_HOST) {
-  console.warn('⚠️  LIVEKIT_HOST не задан. Клиенту будет возвращён пустой livekitUrl.');
+function base64UrlEncode(obj) {
+  return Buffer.from(JSON.stringify(obj)).toString('base64url');
 }
 
-async function generateLiveKitToken(roomName, participantName, metadata) {
+function signToken(roomName, participantName, metadata) {
   if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
     throw new Error('LiveKit credentials are not configured.');
   }
 
-  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-    identity: participantName,
-    metadata,
-  });
-
-  at.addGrant({
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: LIVEKIT_API_KEY,
+    sub: participantName,
+    nbf: now,
+    iat: now,
+    exp: now + 60 * 60,
     video: {
       room: roomName,
       roomJoin: true,
@@ -32,13 +37,20 @@ async function generateLiveKitToken(roomName, participantName, metadata) {
       canSubscribe: true,
       canPublishData: true,
     },
-  });
+  };
 
-  const now = Math.floor(Date.now() / 1000);
-  at.nbf = now;
-  at.exp = now + 60 * 60; // 1 час
+  if (metadata) {
+    payload.metadata = metadata;
+  }
 
-  return await at.toJwt();
+  const encodedHeader = base64UrlEncode(header);
+  const encodedPayload = base64UrlEncode(payload);
+  const signature = crypto
+    .createHmac('sha256', LIVEKIT_API_SECRET)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest('base64url');
+
+  return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
 const server = http.createServer((req, res) => {
@@ -74,7 +86,7 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const token = await generateLiveKitToken(roomName, participantName, metadata);
+        const token = signToken(roomName, participantName, metadata);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 

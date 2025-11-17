@@ -1,15 +1,21 @@
 // Простой скрипт для генерации LiveKit токена
 // Используется для тестирования без Supabase
 
-const { AccessToken } = require('livekit-server-sdk');
+const crypto = require('crypto');
 
-async function generateLiveKitToken(apiKey, apiSecret, roomName, participantName, metadata) {
-  const at = new AccessToken(apiKey, apiSecret, {
-    identity: participantName,
-    metadata,
-  });
+function generateLiveKitToken(apiKey, apiSecret, roomName, participantName, metadata) {
+  if (!apiKey || !apiSecret) {
+    throw new Error('LiveKit API key/secret are required');
+  }
 
-  at.addGrant({
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: apiKey,
+    sub: participantName,
+    nbf: now,
+    iat: now,
+    exp: now + 60 * 60,
     video: {
       room: roomName,
       roomJoin: true,
@@ -17,13 +23,20 @@ async function generateLiveKitToken(apiKey, apiSecret, roomName, participantName
       canSubscribe: true,
       canPublishData: true,
     },
-  });
+  };
 
-  const now = Math.floor(Date.now() / 1000);
-  at.nbf = now;
-  at.exp = now + 60 * 60;
+  if (metadata) {
+    payload.metadata = metadata;
+  }
 
-  return await at.toJwt();
+  const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64url');
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto
+    .createHmac('sha256', apiSecret)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest('base64url');
+
+  return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
 // Экспортируем для использования
@@ -33,7 +46,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // Если запускается напрямую
 if (require.main === module) {
-  (async () => {
+  try {
     const {
       LIVEKIT_API_KEY = 'your_api_key',
       LIVEKIT_API_SECRET = 'your_api_secret',
@@ -41,7 +54,7 @@ if (require.main === module) {
       PARTICIPANT_NAME = 'test-user',
     } = process.env;
 
-    const token = await generateLiveKitToken(
+    const token = generateLiveKitToken(
       LIVEKIT_API_KEY,
       LIVEKIT_API_SECRET,
       ROOM_NAME,
@@ -49,8 +62,8 @@ if (require.main === module) {
     );
 
     console.log('Generated token:', token);
-  })().catch((err) => {
+  } catch (err) {
     console.error('Failed to generate token:', err);
     process.exit(1);
-  });
+  }
 }
