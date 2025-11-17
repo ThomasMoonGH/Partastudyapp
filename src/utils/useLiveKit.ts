@@ -62,6 +62,9 @@ export function useLiveKit({
   const connectionRef = useRef<LiveKitConnection | null>(null);
   const tokenRef = useRef<string | null>(null);
   const roomNameRef = useRef<string>(`session-${sessionId}`);
+  const identityRef = useRef<string>(
+    `${userName}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`
+  );
 
   // Получение токена от сервера в контейнере
   const DEFAULT_LIVEKIT_URL = 'wss://partastudyapp-3jhslurr.livekit.cloud';
@@ -72,13 +75,6 @@ export function useLiveKit({
     expiresIn?: number;
   }> => {
     try {
-      console.log('Generating LiveKit token for:', {
-        roomName: roomNameRef.current,
-        participantName: userName,
-        sessionId,
-        userEmail: userId,
-      });
-      
       const tokenEndpoint =
         ((import.meta as any).env?.VITE_TOKEN_ENDPOINT as string | undefined) || '/generate-token';
       const tokenUrl = /^https?:\/\//i.test(tokenEndpoint)
@@ -92,7 +88,9 @@ export function useLiveKit({
         },
         body: JSON.stringify({
           roomName: roomNameRef.current,
-          participantName: userName,
+          participantName: identityRef.current,
+          participantDisplayName: userName,
+          metadata: JSON.stringify({ displayName: userName }),
         }),
       });
 
@@ -104,7 +102,6 @@ export function useLiveKit({
       if (!data?.token) {
         throw new Error('Token server returned empty token');
       }
-      console.log('Generated token:', data);
       return data;
     } catch (error) {
       console.error('Error fetching LiveKit token:', error);

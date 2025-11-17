@@ -17,7 +17,22 @@ function base64UrlEncode(obj) {
   return Buffer.from(JSON.stringify(obj)).toString('base64url');
 }
 
-function signToken(roomName, participantName, metadata) {
+function normalizeMetadata(metadata, displayName) {
+  if (metadata === undefined || metadata === null) {
+    return displayName ? JSON.stringify({ displayName }) : undefined;
+  }
+  if (typeof metadata === 'string') {
+    return metadata;
+  }
+  try {
+    return JSON.stringify(metadata);
+  } catch (err) {
+    console.warn('Failed to stringify metadata, ignoring', err);
+    return undefined;
+  }
+}
+
+function signToken({ roomName, identity, displayName, metadata }) {
   if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
     throw new Error('LiveKit credentials are not configured.');
   }
@@ -26,7 +41,7 @@ function signToken(roomName, participantName, metadata) {
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: LIVEKIT_API_KEY,
-    sub: participantName,
+    sub: identity,
     nbf: now,
     iat: now,
     exp: now + 60 * 60,
@@ -39,8 +54,12 @@ function signToken(roomName, participantName, metadata) {
     },
   };
 
-  if (metadata) {
-    payload.metadata = metadata;
+  const normalizedMetadata = normalizeMetadata(metadata, displayName);
+  if (normalizedMetadata) {
+    payload.metadata = normalizedMetadata;
+  }
+  if (displayName) {
+    payload.name = displayName;
   }
 
   const encodedHeader = base64UrlEncode(header);
@@ -75,9 +94,18 @@ const server = http.createServer((req, res) => {
     req.on('end', async () => {
       try {
         const data = JSON.parse(body);
-        const { roomName, participantName, metadata } = data;
+        const {
+          roomName,
+          participantName,
+          participantIdentity,
+          participantDisplayName,
+          metadata,
+        } = data;
 
-        if (!roomName || !participantName) {
+        const identity = participantIdentity || participantName;
+        const displayName = participantDisplayName || participantName;
+
+        if (!roomName || !identity) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             success: false,
@@ -86,7 +114,12 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const token = signToken(roomName, participantName, metadata);
+        const token = signToken({
+          roomName,
+          identity,
+          displayName,
+          metadata,
+        });
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
